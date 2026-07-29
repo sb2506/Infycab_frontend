@@ -3,7 +3,7 @@ pipeline {
 
     environment {
         PATH = "/opt/homebrew/bin:/usr/local/bin:${env.PATH}"
-        IMAGE_NAME = "frontend-app"
+        IMAGE_NAME = "sursin01/frontend-app"
         IMAGE_TAG = "${BUILD_NUMBER}"
     }
 
@@ -12,30 +12,6 @@ pipeline {
         stage('Checkout') {
             steps {
                 checkout scm
-            }
-        }
-
-        stage('Verify Tools') {
-            steps {
-                sh '''
-                    echo "Node Version:"
-                    node -v
-
-                    echo "NPM Version:"
-                    npm -v
-
-                    echo "Docker Version:"
-                    docker version
-
-                    echo "Kubectl Version:"
-                    kubectl version --client
-
-                    echo "Current Directory:"
-                    pwd
-
-                    echo "Project Files:"
-                    ls -la
-                '''
             }
         }
 
@@ -49,26 +25,38 @@ pipeline {
             steps {
                 sh '''
                     docker build -t ${IMAGE_NAME}:${IMAGE_TAG} .
+                    docker tag ${IMAGE_NAME}:${IMAGE_TAG} ${IMAGE_NAME}:latest
                 '''
             }
         }
 
-        stage('Verify Image') {
+        stage('Push Docker Image') {
             steps {
-                sh '''
-                    docker images | grep ${IMAGE_NAME}
-                '''
+                withCredentials([usernamePassword(
+                    credentialsId: 'dockerhub',
+                    usernameVariable: 'DOCKER_USER',
+                    passwordVariable: 'DOCKER_PASS'
+                )]) {
+                    sh '''
+                        echo "$DOCKER_PASS" | docker login -u "$DOCKER_USER" --password-stdin
+
+                        docker push ${IMAGE_NAME}:${IMAGE_TAG}
+                        docker push ${IMAGE_NAME}:latest
+
+                        docker logout
+                    '''
+                }
             }
         }
     }
 
     post {
         success {
-            echo 'Pipeline completed successfully.'
+            echo "Docker image pushed successfully."
         }
 
         failure {
-            echo 'Pipeline failed.'
+            echo "Pipeline failed."
         }
     }
 }
