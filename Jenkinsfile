@@ -48,6 +48,25 @@ pipeline {
                 }
             }
         }
+        stage('Deploy') {
+
+    steps {
+
+        sh '''
+
+            kubectl set image deployment/frontend \
+
+            frontend=sursin01/frontend-app:${BUILD_NUMBER} \
+
+            -n project
+
+            kubectl rollout status deployment/frontend -n project
+
+        '''
+
+    }
+
+}
     }
 
     post {
